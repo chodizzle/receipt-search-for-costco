@@ -58,7 +58,7 @@ function flatten(r) {
       amount: Number(it.amount),
       savings: 0,
     };
-    line.haystack = `${line.desc} ${line.desc2} ${line.itemNumber} ${line.warehouse}`.toLowerCase();
+    line.haystack = `${line.desc} ${line.desc2} ${line.itemNumber} ${line.warehouse} ${line.ref}`.toLowerCase();
     byNumber[line.itemNumber] = line;
     out.push(line);
   }
@@ -158,6 +158,8 @@ function group(rows) {
 
 // Per-unit price actually paid, after instant savings.
 const lastPrice = (l) => (l.amount == null ? null : net(l) / (l.qty || 1));
+// Receipt barcode / online order number, with just the last 4 shown in the list.
+const refId = (l) => String(l.ref ?? '').replace(/^o:/, '');
 const srcTag = (l) =>
   l.src === 'online' ? '<span class="tag">online</span>' : l.src === 'gas' ? '<span class="tag gas">gas</span>' : '';
 
@@ -187,9 +189,10 @@ function render() {
       <td class="num">${money(e.spent)}${e.savings ? `<div class="save">saved ${money(-e.savings)}</div>` : ''}</td></tr>`);
     setMore(groups.length);
   } else {
-    thead.innerHTML = `<tr><th>Date</th><th>Item</th><th class="hide-sm">Item #</th><th class="hide-sm">Where</th>
+    thead.innerHTML = `<tr><th title="Last 4 of the receipt or order number">Receipt</th><th>Date</th><th>Item</th><th class="hide-sm">Item #</th><th class="hide-sm">Where</th>
       <th class="num">Qty</th><th class="num">Price</th></tr>`;
     rows = current.slice(0, MAX_ROWS).map((l) => `<tr data-ref="${esc(l.ref)}" data-item="${esc(l.itemNumber)}">
+      <td class="rid" title="${esc(refId(l))}">${highlight(refId(l).slice(-4))}</td>
       <td>${day(l.date)}</td>
       <td>${highlight(l.desc)} ${srcTag(l)}${l.desc2 ? `<div class="desc2">${highlight(l.desc2)}</div>` : ''}</td>
       <td class="hide-sm">${highlight(l.itemNumber)}</td>
