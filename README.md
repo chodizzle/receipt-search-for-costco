@@ -1,0 +1,29 @@
+# Costco Receipt Search
+
+A Chrome extension that downloads all your Costco warehouse receipts and online orders in one go and gives you Amazon-style search across every item you've bought.
+
+## Install (unpacked)
+
+1. Open `chrome://extensions` and turn on **Developer mode** (top right).
+2. Click **Load unpacked** and pick the `extension/` folder.
+3. Pin the extension, then click its icon to open the search page.
+
+## Use
+
+1. Sign in at costco.com in any tab.
+2. On the search page, click **Sync**. It walks back 3 years (warehouse receipts one quarter at a time, online orders one year at a time). Progress shows in the header.
+3. Search. Every term must match the description, item #, or warehouse. Switch to **Group by item** for "how many times / how much have I spent". Use the source dropdown to limit results to warehouse or online. Click a row to see the full receipt or order.
+
+Later syncs are incremental (from a month before the last sync). **Full resync** downloads everything again.
+
+## How it works
+
+- `content.js` is injected into your open Costco tab. It reads the site's own login token from `localStorage` (`idToken`, `clientID`) and calls the same GraphQL endpoint the Orders & Purchases page uses (`ecom-api.costco.com/ebusiness/order/v1/orders/graphql`, queries `receiptsWithCounts`, `getOnlineOrders`, then `getOrderDetails` in batches of 10 for online item prices). Orders already delivered, picked up or cancelled are not re-fetched for details.
+- Receipts are stored in `chrome.storage.local`, on your machine only. Nothing is sent anywhere except Costco.
+- `search.html` / `search.js` show and search the stored data. Instant-savings lines (`/1234567`, negative amounts) are folded into the item they discount.
+
+## Caveats
+
+- The API is undocumented and unofficial. If Costco changes it, sync breaks. The likely fix points are the `*_QUERY` fields, `CLIENT_IDENTIFIER`, and `ONLINE_WAREHOUSE` (847 for .com, 894 for .ca) in `content.js`.
+- Gas station receipts come along via `documentType: all`.
+- If online orders fail, warehouse receipts still save and the header shows the error. If only `getOrderDetails` fails, online items are still searchable but show no price (`—`).

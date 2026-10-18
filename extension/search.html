@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Costco Receipt Search</title>
+  <link rel="stylesheet" href="search.css">
+</head>
+<body>
+  <header>
+    <h1>Costco Receipt Search</h1>
+    <div class="sync">
+      <span id="status">No receipts synced yet.</span>
+      <button id="sync">Sync</button>
+      <button id="fullsync" class="secondary" title="Re-download everything">Full resync</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="controls">
+      <input id="q" type="search" placeholder="Search items — e.g. &quot;kirkland paper towel&quot;, item # 1234567" autofocus>
+      <select id="year"><option value="">All dates</option></select>
+      <select id="source">
+        <option value="">Warehouse + online</option>
+        <option value="warehouse">Warehouse only</option>
+        <option value="online">Online only</option>
+      </select>
+      <div class="toggle">
+        <label><input type="radio" name="view" value="lines" checked> Every purchase</label>
+        <label><input type="radio" name="view" value="grouped"> Group by item</label>
+      </div>
+      <button id="csv" class="secondary">Export CSV</button>
+    </div>
+    <p id="summary"></p>
+    <table id="results"><thead></thead><tbody></tbody></table>
+    <p id="more" hidden></p>
+  </main>
+
+  <dialog id="receipt">
+    <form method="dialog"><button class="close" aria-label="Close">×</button></form>
+    <div id="receipt-body"></div>
+  </dialog>
+
+  <script src="search.js"></script>
+</body>
+</html>

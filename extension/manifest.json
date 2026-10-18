@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Costco Receipt Search",
+  "version": "0.1.0",
+  "description": "Sync your Costco warehouse receipts and search every item you've ever bought.",
+  "permissions": ["storage", "unlimitedStorage", "scripting", "tabs"],
+  "host_permissions": [
+    "https://www.costco.com/*",
+    "https://www.costco.ca/*",
+    "https://ecom-api.costco.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Search Costco receipts" }
+}
