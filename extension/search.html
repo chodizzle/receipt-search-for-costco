@@ -13,6 +13,7 @@
       <span id="status">No receipts synced yet.</span>
       <button id="sync">Sync</button>
       <button id="fullsync" class="secondary" title="Re-download everything">Full resync</button>
+      <button id="open-settings" class="secondary" aria-label="Settings" title="Settings">⚙</button>
     </div>
   </header>
 
@@ -24,6 +25,7 @@
         <option value="">Warehouse + online</option>
         <option value="warehouse">Warehouse only</option>
         <option value="online">Online only</option>
+        <option value="gas">Gas &amp; car wash only</option>
       </select>
       <div class="toggle">
         <label><input type="radio" name="view" value="lines" checked> Every purchase</label>
@@ -39,6 +41,21 @@
   <dialog id="receipt">
     <form method="dialog"><button class="close" aria-label="Close">×</button></form>
     <div id="receipt-body"></div>
+  </dialog>
+
+  <dialog id="settings">
+    <form method="dialog"><button class="close" aria-label="Close">×</button></form>
+    <h2>Settings</h2>
+    <label class="setting">
+      <input type="checkbox" id="set-autoSync">
+      <span><strong>Auto-sync</strong><br>
+        <span class="desc2">When you open Orders &amp; Purchases on Costco, quietly pull new receipts (at most every 6 hours, after your first manual sync).</span></span>
+    </label>
+    <label class="setting">
+      <input type="checkbox" id="set-includeGas">
+      <span><strong>Include gas &amp; car wash</strong><br>
+        <span class="desc2">Show gas station and car wash purchases in search results and totals.</span></span>
+    </label>
   </dialog>
 
   <script src="search.js"></script>

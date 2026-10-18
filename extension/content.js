@@ -148,7 +148,12 @@ if (!window.__costcoReceiptSync) {
     return found;
   }
 
-  async function sync({ since, yearsBack }) {
+  // One sync at a time per tab, so a manual sync and an auto-sync can't
+  // overwrite each other's merge.
+  let queue = Promise.resolve();
+  const sync = (opts) => (queue = queue.catch(() => {}).then(() => runSync(opts)));
+
+  async function runSync({ since, yearsBack }) {
     const now = new Date();
     const floor = since ? new Date(since) : new Date(now.getFullYear() - yearsBack, now.getMonth(), now.getDate());
     const stored = await chrome.storage.local.get(['receipts', 'orders']);
@@ -176,4 +181,27 @@ if (!window.__costcoReceiptSync) {
     sync(msg).then((r) => reply({ ok: true, ...r }), (e) => reply({ ok: false, error: e.message, code: e.code }));
     return true; // async reply
   });
+
+  // Auto-sync: when the manifest loads this on an account page and the user is
+  // on Orders & Purchases, quietly pull anything new (opt-out in Settings).
+  const AUTO_SYNC_EVERY = 6 * 3600e3;
+  let autoRunning = false;
+  async function maybeAutoSync() {
+    if (autoRunning || !/ordersandpurchases/i.test(location.hash)) return;
+    const { settings = {}, lastSync } = await chrome.storage.local.get(['settings', 'lastSync']);
+    // Only after a first manual sync, so the initial 3-year pull is never a surprise.
+    if (settings.autoSync === false || !lastSync || Date.now() - new Date(lastSync) < AUTO_SYNC_EVERY) return;
+    autoRunning = true;
+    try {
+      for (let i = 0; i < 20 && !localStorage.getItem('idToken'); i++) await sleep(1000);
+      const since = new Date(new Date(lastSync).getTime() - 31 * 864e5).toISOString();
+      console.info('[Costco Receipt Search] auto-sync', await sync({ since, yearsBack: 3 }));
+    } catch (e) {
+      console.warn('[Costco Receipt Search] auto-sync failed', e);
+    } finally {
+      autoRunning = false;
+    }
+  }
+  window.addEventListener('hashchange', maybeAutoSync);
+  maybeAutoSync();
 }

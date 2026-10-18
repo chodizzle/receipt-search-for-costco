@@ -48,6 +48,9 @@ dialog .close { float: right; background: none; border: none; color: var(--muted
 dialog h2 { margin: 0 0 4px; font-size: 17px; }
 dialog .meta { color: var(--muted); margin-bottom: 12px; }
 dialog tr { cursor: default; }
+.setting { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.setting input { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--accent); }
+.tag.gas { border-color: var(--muted); color: var(--muted); }
 dialog tr.hit { background: var(--hover); }
 dialog tfoot td { font-weight: 600; border-bottom: none; }
 @media (max-width: 640px) {

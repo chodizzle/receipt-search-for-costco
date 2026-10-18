@@ -9,6 +9,8 @@ let receipts = {};   // barcode -> raw warehouse receipt
 let orders = {};     // order number -> raw online order (+ .details)
 let lines = [];      // flattened, searchable item lines from both
 let current = [];    // lines matching the current filters
+const DEFAULT_SETTINGS = { autoSync: true, includeGas: true };
+let settings = { ...DEFAULT_SETTINGS };
 
 const money = (n) => (n == null || isNaN(n) ? '' : (n < 0 ? '-$' : '$') + Math.abs(n).toFixed(2));
 // Date-only strings parse as UTC midnight (the previous day in US time zones); treat them as local.
@@ -27,8 +29,13 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 
 // Instant-savings lines look like "/1234567" or "TPD/1234567" with a negative
 // amount; fold them into the item they discount when it's on the same receipt.
+// Gas station / car wash receipts come back from the same receipts query.
+const isGas = (r) =>
+  /gas|fuel|car\s*wash/i.test(r.documentType || '') || (r.itemArray || []).some((it) => it.fuelUomCode);
+
 function flatten(r) {
   const items = r.itemArray || [];
+  const gas = isGas(r);
   const out = [];
   const byNumber = {};
   for (const it of items) {
@@ -39,10 +46,10 @@ function flatten(r) {
       continue;
     }
     const line = {
-      src: 'warehouse',
+      src: gas ? 'gas' : 'warehouse',
       ref: r.transactionBarcode,
       date: iso(r.transactionDateTime),
-      warehouse: r.warehouseName || '',
+      warehouse: gas ? `${r.warehouseName || ''} Gas`.trim() : r.warehouseName || '',
       itemNumber: String(it.itemNumber ?? ''),
       desc: d1,
       desc2: (it.itemDescription02 || '').trim(),
@@ -90,7 +97,9 @@ function flattenOrder(o) {
 const net = (l) => (l.amount == null ? 0 : l.amount + l.savings);
 
 async function load() {
-  const data = await chrome.storage.local.get(['receipts', 'orders', 'lastSync']);
+  const data = await chrome.storage.local.get(['receipts', 'orders', 'lastSync', 'settings']);
+  settings = { ...DEFAULT_SETTINGS, ...data.settings };
+  applySettings();
   receipts = data.receipts || {};
   orders = data.orders || {};
   lines = [...Object.values(receipts).flatMap(flatten), ...Object.values(orders).flatMap(flattenOrder)]
@@ -119,6 +128,7 @@ function filter() {
   const src = $('#source').value;
   const cutoff = new Date(Date.now() - 365 * 864e5).toISOString();
   return lines.filter((l) =>
+    (settings.includeGas || l.src !== 'gas') &&
     (!src || l.src === src) &&
     (!year || (year === '12m' ? l.date >= cutoff : l.date.startsWith(year))) &&
     terms.every((t) => l.haystack.includes(t)));
@@ -148,7 +158,8 @@ function group(rows) {
 
 // Per-unit price actually paid, after instant savings.
 const lastPrice = (l) => (l.amount == null ? null : net(l) / (l.qty || 1));
-const srcTag = (l) => (l.src === 'online' ? '<span class="tag">online</span>' : '');
+const srcTag = (l) =>
+  l.src === 'online' ? '<span class="tag">online</span>' : l.src === 'gas' ? '<span class="tag gas">gas</span>' : '';
 
 function render() {
   current = filter();
@@ -205,7 +216,7 @@ function itemTable(items, itemNumber, foot) {
   return `<table>
     <thead><tr><th>Item</th><th>Item #</th><th class="num">Qty</th><th class="num">Price</th></tr></thead>
     <tbody>${items.map((l) => `<tr class="${l.itemNumber === itemNumber ? 'hit' : ''}">
-      <td>${esc(l.desc)}${l.src === 'warehouse' && l.desc2 ? `<div class="desc2">${esc(l.desc2)}</div>` : ''}</td><td>${esc(l.itemNumber)}</td>
+      <td>${esc(l.desc)}${l.src !== 'online' && l.desc2 ? `<div class="desc2">${esc(l.desc2)}</div>` : ''}</td><td>${esc(l.itemNumber)}</td>
       <td class="num">${+(l.qty || 0).toFixed(3)}</td>
       <td class="num">${l.amount == null ? '—' : money(net(l))}${l.savings ? `<div class="save">${money(-l.savings)} off</div>` : ''}</td></tr>`).join('')}</tbody>
     <tfoot>${foot}</tfoot>
@@ -247,7 +258,25 @@ function exportCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+// ---------- settings ----------
+
+function applySettings() {
+  for (const k of Object.keys(DEFAULT_SETTINGS)) $(`#set-${k}`).checked = settings[k];
+  const gasOpt = $('#source option[value=gas]');
+  gasOpt.hidden = gasOpt.disabled = !settings.includeGas;
+  if (!settings.includeGas && $('#source').value === 'gas') $('#source').value = '';
+}
+
+async function saveSetting(k, v) {
+  settings = { ...settings, [k]: v };
+  await chrome.storage.local.set({ settings });
+  applySettings();
+  render();
+}
+
 // ---------- sync ----------
+
+let syncing = false; // manual sync in progress: it reloads + reports on its own
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -278,6 +307,7 @@ async function openOrdersPage(tab) {
 async function sync(full) {
   const btns = [$('#sync'), $('#fullsync')];
   btns.forEach((b) => (b.disabled = true));
+  syncing = true;
   try {
     let [tab] = await chrome.tabs.query({ url: COSTCO_TABS });
     if (!tab) {
@@ -304,6 +334,7 @@ async function sync(full) {
     $('#status').textContent = `⚠ ${e.message}`;
   } finally {
     btns.forEach((b) => (b.disabled = false));
+    syncing = false;
   }
 }
 
@@ -325,5 +356,16 @@ $('#results tbody').addEventListener('click', (e) => {
 $('#sync').addEventListener('click', () => sync(false));
 $('#fullsync').addEventListener('click', () => sync(true));
 $('#csv').addEventListener('click', exportCsv);
+$('#open-settings').addEventListener('click', () => $('#settings').showModal());
+for (const k of Object.keys(DEFAULT_SETTINGS)) {
+  $(`#set-${k}`).addEventListener('change', (e) => saveSetting(k, e.target.checked));
+}
+// Pick up auto-syncs (or another open search tab) without a manual refresh.
+let reloadTimer;
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || syncing || !(changes.receipts || changes.orders)) return;
+  clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(load, 300);
+});
 
 load();

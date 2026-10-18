@@ -14,7 +14,12 @@ A Chrome extension that downloads all your Costco warehouse receipts and online 
 2. On the search page, click **Sync**. It walks back 3 years (warehouse receipts one quarter at a time, online orders one year at a time). Progress shows in the header.
 3. Search. Every term must match the description, item #, or warehouse. Switch to **Group by item** for "how many times / how much have I spent". Use the source dropdown to limit results to warehouse or online. Click a row to see the full receipt or order.
 
-Later syncs are incremental (from a month before the last sync). **Full resync** downloads everything again.
+Later syncs are incremental (from a month before the last sync). **Full resync** downloads everything again. If Costco's login token is missing or stale (e.g. you're on the homepage), Sync sends the Costco tab to Orders & Purchases, waits for the token, and retries.
+
+### Settings (⚙)
+
+- **Auto-sync** (on by default): opening Orders & Purchases on Costco quietly runs an incremental sync, at most every 6 hours and only after your first manual sync. An open search page refreshes itself when it finishes.
+- **Include gas & car wash** (on by default): turn off to hide gas station and car wash receipts from results and totals. When on, the source dropdown has a "Gas & car wash only" option.
 
 ## How it works
 
