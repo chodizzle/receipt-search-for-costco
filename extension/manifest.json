@@ -4,6 +4,7 @@
   "short_name": "Receipt Search",
   "version": "1.0.0",
   "description": "Search every item on your Costco warehouse receipts and online orders. Unofficial; your data stays in your browser.",
+  "homepage_url": "https://github.com/chodizzle/receipt-search-for-costco",
   "minimum_chrome_version": "116",
   "permissions": ["storage", "unlimitedStorage", "scripting"],
   "host_permissions": [

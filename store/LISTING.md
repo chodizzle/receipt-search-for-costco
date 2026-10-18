@@ -51,8 +51,8 @@ Receipt Search for Costco is an independent project. It is not affiliated with, 
   2. "See how often you buy it and what you paid"
   3. "Open the full receipt in one click"
 
-**Official URL / Homepage URL:** your GitHub repo URL (optional)
-**Support URL:** your repo's Issues page (optional)
+**Homepage URL:** https://github.com/chodizzle/receipt-search-for-costco
+**Support URL:** https://github.com/chodizzle/receipt-search-for-costco/issues
 
 ---
 
@@ -84,7 +84,7 @@ Leave everything else unchecked.
 - ☑ I do not use or transfer user data for purposes that are unrelated to my item's single purpose
 - ☑ I do not use or transfer user data to determine creditworthiness or for lending purposes
 
-**Privacy policy URL:** public URL of `PRIVACY.md` (e.g. `https://github.com/<you>/<repo>/blob/main/PRIVACY.md`)
+**Privacy policy URL:** https://github.com/chodizzle/receipt-search-for-costco/blob/main/PRIVACY.md
 
 ---
 
