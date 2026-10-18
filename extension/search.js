@@ -23,6 +23,7 @@ const iso = (s) => {
   const d = new Date(s);
   return isNaN(d) ? String(s) : d.toISOString();
 };
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // ---------- data ----------
@@ -108,7 +109,7 @@ async function load() {
   const nr = Object.keys(receipts).length;
   const no = Object.keys(orders).length;
   $('#status').textContent = nr + no
-    ? `${nr} receipts · ${no} online orders · ${lines.length} items · synced ${new Date(data.lastSync).toLocaleString()}`
+    ? `${plural(nr, 'receipt')} · ${plural(no, 'online order')} · ${plural(lines.length, 'item')} · synced ${new Date(data.lastSync).toLocaleString()}`
     : 'No receipts synced yet — click Sync.';
 
   const years = [...new Set(lines.map((l) => l.date.slice(0, 4)))].sort().reverse();
@@ -169,7 +170,7 @@ function render() {
   const total = current.reduce((s, l) => s + net(l), 0);
   const tripCount = new Set(current.map((l) => l.ref)).size;
   $('#summary').textContent = lines.length
-    ? `${current.length} purchases on ${tripCount} receipts/orders · ${money(total)} total`
+    ? `${plural(current.length, 'purchase')} on ${plural(tripCount, 'receipt/order', 'receipts/orders')} · ${money(total)} total`
     : '';
 
   const thead = $('#results thead');
@@ -242,7 +243,7 @@ function showReceipt(ref, itemNumber) {
     if (!r) return;
     $('#receipt-body').innerHTML = `
       <h2>${esc(r.warehouseName || 'Costco')}</h2>
-      <div class="meta">${new Date(iso(r.transactionDateTime)).toLocaleString()} · ${esc(r.documentType || '')} · ${esc(ref)}</div>
+      <div class="meta">${new Date(iso(r.transactionDateTime)).toLocaleString()} · ${isGas(r) ? 'Gas station' : 'Warehouse'} · ${esc(ref)}</div>
       ${itemTable(flatten(r), itemNumber,
         totalRow('Subtotal', r.subTotal) + totalRow('Tax', r.taxes) + totalRow('Total', r.total) +
         totalRow('Instant savings', r.instantSavings, 'save'))}`;
@@ -298,7 +299,8 @@ async function openOrdersPage(tab) {
   for (let i = 0; i < 30; i++) {
     await sleep(1000);
     const t = await chrome.tabs.get(tab.id);
-    if (t.status !== 'complete' || !t.url.startsWith(origin)) continue;
+    // url is undefined while the tab is off our host permissions (e.g. a sign-in redirect).
+    if (t.status !== 'complete' || !(t.url || '').startsWith(origin)) continue;
     try {
       if ((await send(tab.id, { type: 'has-token' }))?.ok) return;
     } catch { /* page still settling */ }

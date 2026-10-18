@@ -138,7 +138,7 @@ if (!window.__costcoReceiptSync) {
         const details = (await gql(ONLINE_DETAILS_QUERY, { orderNumbers: need.slice(i, i + 10) }))?.getOrderDetails ?? [];
         for (const d of details) if (found[d.orderNumber]) found[d.orderNumber].details = d;
       } catch (e) {
-        console.warn('[Costco Receipt Search] order details failed; keeping list data only', e);
+        console.warn('[Receipt Search for Costco] order details failed; keeping list data only', e);
       }
       await sleep(400);
     }
@@ -195,9 +195,9 @@ if (!window.__costcoReceiptSync) {
     try {
       for (let i = 0; i < 20 && !localStorage.getItem('idToken'); i++) await sleep(1000);
       const since = new Date(new Date(lastSync).getTime() - 31 * 864e5).toISOString();
-      console.info('[Costco Receipt Search] auto-sync', await sync({ since, yearsBack: 3 }));
+      console.info('[Receipt Search for Costco] auto-sync', await sync({ since, yearsBack: 3 }));
     } catch (e) {
-      console.warn('[Costco Receipt Search] auto-sync failed', e);
+      console.warn('[Receipt Search for Costco] auto-sync failed', e);
     } finally {
       autoRunning = false;
     }

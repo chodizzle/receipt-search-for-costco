@@ -58,3 +58,4 @@ dialog tfoot td { font-weight: 600; border-bottom: none; }
   .hide-sm { display: none; }
 }
 .rid { font-family: ui-monospace, Consolas, monospace; color: var(--muted); white-space: nowrap; }
+footer { max-width: 1200px; margin: 24px auto; padding: 0 24px; color: var(--muted); font-size: 12px; }
