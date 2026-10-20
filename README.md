@@ -2,7 +2,13 @@
 
 A Chrome extension that downloads all your Costco warehouse receipts and online orders in one go and gives you Amazon-style search across every item you've bought.
 
-## Install (unpacked)
+**[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/receipt-search-for-costco/hhagapdpkgbnaedlhenonmodghfkhnko)**
+
+Independent project, not affiliated with Costco Wholesale Corporation.
+
+![Searching purchase history](store/screenshot-1-search.png)
+
+## Install from source (unpacked)
 
 1. Open `chrome://extensions` and turn on **Developer mode** (top right).
 2. Click **Load unpacked** and pick the `extension/` folder.
