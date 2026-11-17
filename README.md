@@ -19,8 +19,11 @@ Independent project, not affiliated with Costco Wholesale Corporation.
 1. Sign in at costco.com in any tab.
 2. On the search page, click **Sync**. It walks back 3 years (warehouse receipts one quarter at a time, online orders one year at a time). Progress shows in the header.
 3. Search. Every term must match the description, item #, or warehouse. Switch to **Group by item** for "how many times / how much have I spent". Use the source dropdown to limit results to warehouse or online. Click a row to see the full receipt or order.
+4. Export. **Export CSV** saves every matching item line. **Receipts CSV** saves one row per receipt or order that has a matching item, with its subtotal, shipping, instant savings or online discount, tax and total as Costco reports them, plus **Matched net** (the sum of just the matching items, so a filtered export doesn't overstate spending). Receipts with no item lines never match, so they aren't exported; online orders whose details didn't load have a total but no subtotal or tax.
 
 Later syncs are incremental (from a month before the last sync). **Full resync** downloads everything again. If Costco's login token is missing or stale (e.g. you're on the homepage), Sync sends the Costco tab to Orders & Purchases, waits for the token, and retries.
+
+**Print receipts** prints every receipt or order in the current results, one per page; pick **Save as PDF** in the print dialog to get a PDF. **Print / Save as PDF** in a receipt's popup does the same for just that receipt. No PDF files come from Costco; these are laid out from the synced data.
 
 ### Settings (⚙)
 

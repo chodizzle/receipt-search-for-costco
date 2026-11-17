@@ -32,6 +32,8 @@
         <label><input type="radio" name="view" value="grouped"> Group by item</label>
       </div>
       <button id="csv" class="secondary">Export CSV</button>
+      <button id="csv-receipts" class="secondary" title="One row per matching receipt or order, with its subtotal, savings, tax and total">Receipts CSV</button>
+      <button id="print-all" class="secondary" title="Print every matching receipt or order, one per page (choose Save as PDF to get a PDF)">Print receipts</button>
     </div>
     <p id="summary"></p>
     <table id="results"><thead></thead><tbody></tbody></table>
@@ -43,7 +45,10 @@
   <dialog id="receipt">
     <form method="dialog"><button class="close" aria-label="Close">×</button></form>
     <div id="receipt-body"></div>
+    <div class="dialog-actions"><button id="print-one" class="secondary">Print / Save as PDF</button></div>
   </dialog>
+
+  <div id="print-area"></div>
 
   <dialog id="settings">
     <form method="dialog"><button class="close" aria-label="Close">×</button></form>

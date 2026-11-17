@@ -16,12 +16,13 @@ const money = (n) => (n == null || isNaN(n) ? '' : (n < 0 ? '-$' : '$') + Math.a
 // Date-only strings parse as UTC midnight (the previous day in US time zones); treat them as local.
 const day = (iso) => new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T00:00` : iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 // Costco returns a mix of ISO and US-style date strings; normalize so sorting
-// and year filtering can compare strings.
+// and year filtering can compare strings. Keep local time: toISOString() would
+// move an evening purchase to the next (UTC) day, or Dec 31 into the next year.
 const iso = (s) => {
   if (!s) return '';
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s;
   const d = new Date(s);
-  return isNaN(d) ? String(s) : d.toISOString();
+  return isNaN(d) ? String(s) : new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 19);
 };
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -34,7 +35,8 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 const isGas = (r) =>
   /gas|fuel|car\s*wash/i.test(r.documentType || '') || (r.itemArray || []).some((it) => it.fuelUomCode);
 
-function flatten(r) {
+// key: the receipt's storage key (its barcode, or date|total when it has none).
+function flatten(r, key) {
   const items = r.itemArray || [];
   const gas = isGas(r);
   const out = [];
@@ -48,7 +50,7 @@ function flatten(r) {
     }
     const line = {
       src: gas ? 'gas' : 'warehouse',
-      ref: r.transactionBarcode,
+      ref: key,
       date: iso(r.transactionDateTime),
       warehouse: gas ? `${r.warehouseName || ''} Gas`.trim() : r.warehouseName || '',
       itemNumber: String(it.itemNumber ?? ''),
@@ -103,7 +105,7 @@ async function load() {
   applySettings();
   receipts = data.receipts || {};
   orders = data.orders || {};
-  lines = [...Object.values(receipts).flatMap(flatten), ...Object.values(orders).flatMap(flattenOrder)]
+  lines = [...Object.entries(receipts).flatMap(([k, r]) => flatten(r, k)), ...Object.values(orders).flatMap(flattenOrder)]
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const nr = Object.keys(receipts).length;
@@ -227,39 +229,97 @@ function itemTable(items, itemNumber, foot) {
   </table>`;
 }
 
-function showReceipt(ref, itemNumber) {
+// Receipt or order as HTML, for the dialog and for printing. Null if unknown.
+function receiptHtml(ref, itemNumber) {
   if (ref.startsWith('o:')) {
     const o = orders[ref.slice(2)];
-    if (!o) return;
+    if (!o) return null;
     const d = o.details || {};
-    $('#receipt-body').innerHTML = `
+    return `
       <h2>Online order #${esc(o.orderNumber)}</h2>
       <div class="meta">${day(iso(o.orderPlacedDate))} · ${esc(o.status || '')}${o.details ? '' : ' · item prices unavailable'}</div>
       ${itemTable(flattenOrder(o), itemNumber,
         totalRow('Merchandise', d.merchandiseTotal) + totalRow('Shipping & handling', d.shippingAndHandling, 'opt') +
         totalRow('Discounts', d.discountAmount, 'save') + totalRow('Tax', d.uSTaxTotal1) + totalRow('Total', o.orderTotal ?? d.orderTotal))}`;
-  } else {
-    const r = receipts[ref];
-    if (!r) return;
-    $('#receipt-body').innerHTML = `
+  }
+  const r = receipts[ref];
+  if (!r) return null;
+  return `
       <h2>${esc(r.warehouseName || 'Costco')}</h2>
       <div class="meta">${new Date(iso(r.transactionDateTime)).toLocaleString()} · ${isGas(r) ? 'Gas station' : 'Warehouse'} · ${esc(ref)}</div>
-      ${itemTable(flatten(r), itemNumber,
+      ${itemTable(flatten(r, ref), itemNumber,
         totalRow('Subtotal', r.subTotal) + totalRow('Tax', r.taxes) + totalRow('Total', r.total) +
         totalRow('Instant savings', r.instantSavings, 'save'))}`;
-  }
+}
+
+let shownRef = null; // receipt open in the dialog, for its Print button
+
+function showReceipt(ref, itemNumber) {
+  const html = receiptHtml(ref, itemNumber);
+  if (!html) return;
+  shownRef = ref;
+  $('#receipt-body').innerHTML = html;
   $('#receipt').showModal();
 }
 
-function exportCsv() {
+// ---------- print ----------
+
+// One receipt per page in the browser's print dialog (choose "Save as PDF").
+// Print styles only apply under body.printing, so a plain Ctrl+P still prints
+// the results table.
+function printReceipts(refs) {
+  const pages = refs.map((ref) => receiptHtml(ref)).filter(Boolean);
+  if (!pages.length) return;
+  $('#receipt').close();
+  $('#print-area').innerHTML = pages.map((h) => `<section class="print-receipt">${h}</section>`).join('');
+  document.body.classList.add('printing');
+  window.print();
+}
+
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('printing');
+  $('#print-area').innerHTML = '';
+});
+
+function downloadCsv(filename, header, rows) {
   const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const header = ['Date', 'Source', 'Where', 'Item #', 'Description', 'Description 2', 'Qty', 'Unit price', 'Amount', 'Savings', 'Net', 'Receipt / order'];
-  const body = current.map((l) => [l.date, l.src, l.warehouse, l.itemNumber, l.desc, l.desc2, l.qty, l.unitPrice, l.amount, l.savings,
-    l.amount == null ? '' : net(l).toFixed(2), l.ref.replace(/^o:/, '')].map(cell).join(','));
+  const body = rows.map((r) => r.map(cell).join(','));
   const blob = new Blob([[header.join(','), ...body].join('\n')], { type: 'text/csv' });
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'costco-purchases.csv' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename });
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function exportCsv() {
+  const header = ['Date', 'Source', 'Where', 'Item #', 'Description', 'Description 2', 'Qty', 'Unit price', 'Amount', 'Savings', 'Net', 'Receipt / order'];
+  downloadCsv('costco-purchases.csv', header, current.map((l) => [l.date, l.src, l.warehouse, l.itemNumber, l.desc, l.desc2, l.qty, l.unitPrice, l.amount, l.savings,
+    l.amount == null ? '' : net(l).toFixed(2), l.ref.replace(/^o:/, '')]));
+}
+
+// One row per receipt/order with at least one line in the current results.
+// Subtotal…Total are for the whole receipt, as Costco reports them; "Matched net"
+// sums only the lines that match the current search and filters.
+function exportReceiptsCsv() {
+  const matched = new Map();
+  for (const l of current) {
+    const m = matched.get(l.ref) || { l, net: 0, priced: false };
+    m.net += net(l);
+    m.priced ||= l.amount != null;
+    matched.set(l.ref, m);
+  }
+  const header = ['Date', 'Source', 'Where', 'Receipt / order', 'Type / status', 'Subtotal', 'Shipping', 'Instant savings', 'Online discount', 'Tax', 'Total', 'Matched net'];
+  const rows = [...matched.values()].map(({ l, net: matchedNet, priced }) => {
+    const id = refId(l);
+    const m = priced ? matchedNet.toFixed(2) : '';
+    if (l.src === 'online') {
+      const o = orders[id] || {};
+      const d = o.details || {};
+      return [l.date, l.src, 'Online', id, o.status, d.merchandiseTotal, d.shippingAndHandling, '', d.discountAmount, d.uSTaxTotal1, o.orderTotal ?? d.orderTotal, m];
+    }
+    const r = receipts[l.ref] || {};
+    return [l.date, l.src, l.warehouse, id, r.transactionType, r.subTotal, '', r.instantSavings, '', r.taxes, r.total, m];
+  });
+  downloadCsv('costco-receipts.csv', header, rows);
 }
 
 // ---------- settings ----------
@@ -361,6 +421,10 @@ $('#results tbody').addEventListener('click', (e) => {
 $('#sync').addEventListener('click', () => sync(false));
 $('#fullsync').addEventListener('click', () => sync(true));
 $('#csv').addEventListener('click', exportCsv);
+$('#csv-receipts').addEventListener('click', exportReceiptsCsv);
+// Every receipt/order in the current results, newest first (lines are sorted by date).
+$('#print-all').addEventListener('click', () => printReceipts([...new Set(current.map((l) => l.ref))]));
+$('#print-one').addEventListener('click', () => printReceipts([shownRef]));
 $('#open-settings').addEventListener('click', () => $('#settings').showModal());
 for (const k of Object.keys(DEFAULT_SETTINGS)) {
   $(`#set-${k}`).addEventListener('change', (e) => saveSetting(k, e.target.checked));
